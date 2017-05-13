@@ -1,0 +1,273 @@
+---
+title: "Phackers Salary Survey"
+output:
+  html_notebook: default
+  html_document: default
+---
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+# Loading libraries and Data
+
+```{r echo=FALSE}
+library(tidyverse)
+library(scales)  # allows us to use labels=comma in scales
+```
+
+```{r}
+# read_csv is a tidyverse version, found in the readr library
+phackers_raw <- read_csv("Philippine Tech Hackers Salary Survey 2017.csv")
+dim(phackers_raw)
+```
+# Cleanup
+We rename the columns to make them easier to work with. 
+
+```{r}
+phackers <- phackers_raw %>% rename(job_title=`What is your job title?`,
+                    dept=`What is your department (if applicable)?`,
+                    sal_raw=`Please enter your approximate monthly base salary in Philippine Pesos.`,
+                    sal_increase_raw=`How much more is your current salary, than your salary three years ago?`,
+                    sal_bonus_raw=`Approximately how much was your bonus from last year (aside from any mandatory bonuses -- e.g 13th month)?`,
+                    in_ph=`Are you currently living/working in the Philippines?`,
+                    ph_city=`If you currently work in the Philippines, which city do you work in?`,
+                    age_range=`What is your age?`,
+                    exp_raw=`How many years of experience do you have in your field?`,
+                    gender=`What is your gender?`,
+                    educ_stmts=`Which of the following statements about your education are true?`,
+                    university=`Which university did you attend last?`,
+                    university_other=`If your university was not listed in the previous question, you may add it here.`,
+                    certifications=`What certifications do you currently have?`,
+                    employment_status=`Are you a full- or part-time employee of a company, or a freelancer?`,
+                    company_industry=`What is your company's business or industry?`,
+                    company_size=`How many employees work at your company?`,
+                    company_age=`How long has your company been in business?`,
+                    os_used=`Operating systems`,
+                    proglang_used=`Programming Languages`,
+                    datatools_used=`Data tools`,
+                    cloud_used=`Cloud/Containers`,
+                    worktasks_noncollab=`Which of the following tasks play a part in your workday? [Writing code for non-collaborative projects (no one else will work on this code)]`,
+                    worktasks_collab=`Which of the following tasks play a part in your workday? [Writing code for collaborative projects]`,
+                    worktasks_collabreview = `Which of the following tasks play a part in your workday? [Reading/editing code originally written by others (e.g., using git)]`)
+```
+## Conversions
+Convert string salary ranges to the numeric equivalent. 
+```{r}
+# phackers$sal_num <- parse_number(sapply(strsplit(phackers$sal_raw, " - "), function(x){x[1]}))
+phackers$sal_num <- sapply(sapply(strsplit(phackers$sal_raw, ' - '), parse_number), mean)
+phackers$exp_num <- parse_number(phackers$exp_raw)
+```
+
+Convert company size to factors so we can control order of facets
+```{r}
+# Convert company size to factors so we can control order of facets
+# http://stackoverflow.com/questions/14262497/fixing-the-order-of-facets-in-ggplot
+phackers$company_size_f <- factor(phackers$company_size, levels=c("1", "2 - 25", "25 - 100", "101 - 500", 
+                                                                            "501- 1,000", "1,001 - 2,500", "2,501 - 10,000", "10,001 or more"))
+# Convert gender to factor
+
+phackers$company_industry_f <- factor(phackers$company_industry)
+phackers$gender <- factor(phackers$gender, levels=c("Male", "Female", "Prefer not to say"))
+# Convert company age to factor as well
+# unique(phackers$company_age) will get us the list of ages to sort
+phackers$company_age_f <- factor(phackers$company_age, levels=c("less than 2 years", "2 - 5 years",
+                                                                          "6 - 10 years", "11 - 20 years", 
+                                                                          "20 years or longer"))
+
+# Convert the employment status to factors as well
+phackers$employment_f <- factor(phackers$employment_status, levels=c("Employed in a company, full or part-time", "Freelance or independent contractor"), labels=c("Employed", "Freelance"))
+
+# levels for age
+l <- sort(unique(phackers$age_range))
+print(l)
+age_levels <- c(l[8], l[1:7])
+print(age_levels)
+phackers$age <- factor(phackers$age_range, labels = age_levels)
+
+```
+
+## Outlier labelling
+We label as outliers those that:
+ a. are outside the Philippines
+ b. are outside Q3+3IQR in salary and years of experience
+ 
+```{r}
+sal_smry <- summary(phackers$sal_num)
+sal_smry
+```
+```{r}
+sal_iqr = sal_smry['3rd Qu.'] - sal_smry['1st Qu.']
+sal_upper_fence <- sal_smry['1st Qu.'] + 3 * sal_iqr
+
+exp_summary<-summary(phackers$exp_num)
+exp_iqr <- exp_summary['3rd Qu.'] - exp_summary['1st Qu.']
+exp_upper_fence <- exp_summary['3rd Qu.'] + 3*exp_iqr
+
+phackers$outlier <- phackers$sal_num > sal_upper_fence | 
+  phackers$exp_num > exp_upper_fence | 
+  phackers$in_ph == FALSE
+
+phackers <- phackers %>% filter(!outlier)
+```
+# Exploratory Data Analysis
+
+## Gender, Age and Experience
+```{r}
+phackers %>% group_by(age, gender) %>% summarise(mean_sal = mean(sal_num), sd=sd(sal_num))
+```
+```{r}
+phackers %>% filter(gender != "Prefer not to say") %>% 
+  ggplot(aes(x=exp_num, y=sal_num, color=gender)) + geom_jitter(alpha=0.5) +  
+  geom_smooth(method="lm", se=FALSE) + scale_y_continuous(labels=comma) + xlab("Years of experience in field") +
+  ylab("Salary")
+```
+
+```{r}
+phackers %>% group_by(age) %>% 
+  summarise(n=n(), "percent"=(round(100 * n()/sum(count(phackers)),2)))
+```
+```{r}
+phackers %>% filter(!outlier) %>% ggplot(aes(age, fill=gender)) + geom_bar(stat="count") + 
+  ylab(label = "respondents") + ggtitle("Age Distribution", subtitle="by gender") 
+```
+
+```{r}
+phackers %>% ggplot(aes(x=exp_num,fill=gender)) + geom_histogram(binwidth = 1) + 
+  ylab(label="respondents") + xlab("years of experience")
+```
+## Gender distribution
+```{r}
+phackers %>% filter(!outlier, gender != "Prefer not to say") %>% ggplot(aes(x=gender, y=sal_num)) + 
+#  geom_violin() + 
+  geom_boxplot() +
+  labs(title="Salary by gender", subtitle="Do women make less than men?", caption="This is a caption") +
+  scale_y_continuous(labels =comma)
+
+# phackers %>% count(gender, age)
+```
+
+```{r}
+phackers %>% filter(gender!="Prefer not to say") %>% 
+  select(sal_num, gender) %>% 
+  ggplot(aes(y=sal_num, x=gender)) + 
+  geom_boxplot() + 
+  labs(title="Salary by gender", subtitle="Do women make less than men?", caption="This is a caption") + scale_y_continuous(labels =comma)
+```
+
+
+```{r out.width=9}
+phackers %>% 
+  filter(gender != "Prefer not to say") %>% 
+  select(sal_num, exp_num, gender,employment_f ) %>% 
+  ggplot(aes(exp_num, sal_num, color=gender, shape=employment_f),) + geom_jitter(alpha=0.5) + geom_smooth(method="lm", se=FALSE) + facet_grid(~employment_f)
+```
+```{r}
+phackers %>% 
+  select(sal_num, exp_num, gender) %>% 
+  ggplot(aes(exp_num, sal_num),) + geom_jitter(alpha=.5) + geom_smooth(method = "lm")
+```
+
+```{r}
+phackers %>% 
+  select(sal_num, company_industry) %>% ggplot(aes(x=company_industry, y=sal_num)) + geom_boxplot() + geom_jitter()
+  
+```
+
+# Test
+```{r}
+phackers %>% 
+  filter(gender!="Prefer not to say") %>%
+  select(sal_num, exp_num, gender,employment_status ) %>% 
+  ggplot(aes(y=sal_num, x=gender),) + geom_boxplot() + facet_grid(~employment_status)
+```
+```{r}
+unique(phackers$company_size)
+
+
+phackers %>% filter(!outlier) %>% ggplot(aes(y=sal_num, x=exp_num, color=company_size_f)) + geom_jitter() + facet_grid(~company_age_f)
+```
+```{r}
+unique(phackers$company_age)
+
+```
+
+# Programming Languages
+First, obtain the top 20 languages
+```{r}
+library(splitstackshape)
+languages <- phackers %>% filter(!outlier) %>% select(proglang_used)
+# cSplit_e(languages, "proglang_used", sep=";", fill=0, type="character")
+language_counts <- cSplit(languages, "proglang_used", sep=";", direction="tall") %>% group_by(proglang_used) %>% summarise(cnt=n()) %>% arrange(desc(cnt)) %>% head(21) %>% filter(proglang_used != "(I don't use any programming language)")
+language_counts
+```
+```{r}
+top_20_languages <- factor(language_counts$proglang_used)
+# Column names will be used later, for filtering
+# we buld a list of column names. they all start with "proglang_used_" + language
+top_20_colnames <- paste('proglang_used_',top_20_languages, sep="")
+top_20_languages
+```
+## Linear model
+```{r}
+sal_langs <- phackers %>% filter(!outlier) %>% select(sal_num, proglang_used)
+
+# Dummy variable for each of the top 20 programming languages
+sal_lang_dummies <- concat.split.expanded(sal_langs, 2, sep=";", type="character", fill=0) %>% select(sal_num, one_of(top_20_colnames))
+sal_lang_dummies
+```
+
+```{r}
+lang_model <- lm(sal_num ~ ., sal_lang_dummies)
+summary(lang_model)
+```
+```{r}
+# we will cbind this later
+phackers_languages <- sal_lang_dummies %>% select(-sal_num)
+```
+
+## University rankings
+Top universities in SEAsia: https://www.topuniversities.com/university-rankings/asian-university-rankings/2016
+
+Ranked universities: 
+UP
+ADMU
+DLSU
+UST
+```{r}
+# We create a new dummy variable (ranked_univ) that signifies whether it was one of those above
+phackers <- phackers %>% mutate(univ_ranked = (university == "University of the Philippines Diliman, Quezon City" |
+                                     university=="Ateneo de Manila University, Quezon City" | 
+                                     university == "De La Salle University, Manila"|
+                                     university == "University of Santo Tomas, Manila")) %>% filter(!outlier) 
+phackers %>% select(sal_num, univ_ranked) %>%
+  ggplot(aes(y=sal_num, x=univ_ranked)) + geom_boxplot() + scale_y_continuous(labels = comma)
+
+```
+
+## NCR vs. Outside NCR
+```{r}
+phackers <- phackers %>% mutate(in_ncr = endsWith(ph_city, " NCR")) 
+phackers %>% filter(!outlier, !is.na(in_ncr)) %>% ggplot(aes(y=sal_num, x=in_ncr)) + geom_boxplot()
+```
+
+```{r}
+phackers %>% mutate(in_ncr = endsWith(ph_city, " NCR")) %>% filter(!outlier & !is.na(in_ncr)) %>% ggplot(aes(y=sal_num, x=exp_num, color=in_ncr)) + geom_jitter() + scale_y_continuous(labels=comma) + geom_smooth(method="lm")
+```
+
+# Final Model
+```{r}
+phackers_vars <- cbind(phackers, phackers_languages) %>% filter(!outlier) %>% 
+  select(sal_num, gender, exp_num, in_ncr, univ_ranked, company_age_f, company_size_f, 
+         one_of(colnames(phackers_languages)) )
+final_model <- lm(sal_num ~ . , data = phackers_vars)
+summary(final_model)
+```
+```{r}
+x_test <- phackers_vars[1:3,] %>% select(gender:proglang_used_Haskell)
+predict(final_model, x_test)
+```
+
+```{r}
+phackers_vars[1:3, "sal_num"]
+```
+
