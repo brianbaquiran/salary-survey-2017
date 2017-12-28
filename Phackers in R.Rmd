@@ -3,6 +3,7 @@ title: "Phackers Salary Survey"
 output:
   html_notebook: default
   html_document: default
+  pdf_document: default
 ---
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
@@ -108,6 +109,7 @@ phackers$outlier <- phackers$sal_num > sal_upper_fence |
   phackers$in_ph == FALSE
 
 phackers <- phackers %>% filter(!outlier)
+# From this point on, no need to filter(!outlier)
 ```
 # Exploratory Data Analysis
 
@@ -115,7 +117,7 @@ phackers <- phackers %>% filter(!outlier)
 ```{r}
 phackers %>% group_by(age, gender) %>% summarise(mean_sal = mean(sal_num), sd=sd(sal_num))
 ```
-```{r}
+```{r  }
 phackers %>% filter(gender != "Prefer not to say") %>% 
   ggplot(aes(x=exp_num, y=sal_num, color=gender)) + geom_jitter(alpha=0.5) +  
   geom_smooth(method="lm", se=FALSE) + scale_y_continuous(labels=comma) + xlab("Years of experience in field") +
@@ -127,7 +129,7 @@ phackers %>% group_by(age) %>%
   summarise(n=n(), "percent"=(round(100 * n()/sum(count(phackers)),2)))
 ```
 ```{r}
-phackers %>% filter(!outlier) %>% ggplot(aes(age, fill=gender)) + geom_bar(stat="count") + 
+phackers %>% ggplot(aes(age, fill=gender)) + geom_bar(stat="count") + 
   ylab(label = "respondents") + ggtitle("Age Distribution", subtitle="by gender") 
 ```
 
@@ -135,6 +137,43 @@ phackers %>% filter(!outlier) %>% ggplot(aes(age, fill=gender)) + geom_bar(stat=
 phackers %>% ggplot(aes(x=exp_num,fill=gender)) + geom_histogram(binwidth = 1) + 
   ylab(label="respondents") + xlab("years of experience")
 ```
+## Where do they work? 
+### Company Size and Age
+```{r}
+phackers %>% filter(employment_f=="Employed") %>% 
+  group_by(company_size_f) %>% 
+  summarize(n=n(), percentage=round(100*n()/sum(count(phackers)),2)) %>% 
+  rename("Company Size"=company_size_f)
+```
+```{r}
+phackers%>% filter(employment_f=="Employed") %>% ggplot(aes(company_size_f, fill=company_age_f)) + geom_bar(stat="count") +
+  scale_fill_discrete("Company Age") + xlab("Company Size")
+```
+```{r}
+phackers %>% filter(employment_f=="Employed") %>%  group_by(company_age_f) %>% summarize(n=n(), percentage=round(100*n()/sum(count(phackers)),2)) %>% rename("Company Age"=company_age_f)
+```
+```{r}
+phackers %>% filter(employment_f=="Employed") %>% ggplot(aes(company_age_f, fill=company_size_f)) + geom_bar(stat="count") + 
+  xlab("Company Age") + scale_fill_discrete("Company Size")
+```
+```{r}
+unique(phackers$company_size)
+
+
+phackers %>% filter(employment_f=="Employed") %>% ggplot(aes(y=sal_num, x=exp_num, color=company_size_f)) +
+  geom_jitter(alpha=0.5) + facet_wrap(~company_age_f) + ylab("Salary") + xlab("Years of experience") +
+  scale_color_discrete(name="Company Size") + labs(title="Employee Salaries", subtitle="by Company Size and Age")
+  
+```
+## Industries
+```{r}
+phackers %>% filter(employment_f=="Employed") %>% group_by(company_industry_f) %>% 
+  summarise(n=n(), pct=round(100*n()/sum(count(phackers)),2)) %>% arrange(desc(n)) %>%
+  rename("Industry"=company_industry_f, percentage=pct)
+```
+
+
+
 ## Gender distribution
 ```{r}
 phackers %>% filter(!outlier, gender != "Prefer not to say") %>% ggplot(aes(x=gender, y=sal_num)) + 
@@ -164,7 +203,7 @@ phackers %>%
 ```{r}
 phackers %>% 
   select(sal_num, exp_num, gender) %>% 
-  ggplot(aes(exp_num, sal_num),) + geom_jitter(alpha=.5) + geom_smooth(method = "lm")
+  ggplot(aes(exp_num, sal_num)) + geom_jitter(alpha=.5) + geom_smooth(method = "lm")
 ```
 
 ```{r}
@@ -181,11 +220,10 @@ phackers %>%
   ggplot(aes(y=sal_num, x=gender),) + geom_boxplot() + facet_grid(~employment_status)
 ```
 ```{r}
-unique(phackers$company_size)
+phackers %>% filter(!outlier, employment_f=="Employed") %>% ggplot(aes(y=sal_num, x=company_size_f)) + geom_boxplot() + coord_flip() + xlab("Company Size") + ylab("Salary") + labs(title="Employees", subtitle="Full or part time")
 
-
-phackers %>% filter(!outlier) %>% ggplot(aes(y=sal_num, x=exp_num, color=company_size_f)) + geom_jitter() + facet_grid(~company_age_f)
 ```
+
 ```{r}
 unique(phackers$company_age)
 
@@ -269,5 +307,18 @@ predict(final_model, x_test)
 
 ```{r}
 phackers_vars[1:3, "sal_num"]
+```
+
+# Where do they live and work
+```{r}
+phackers %>% filter(!is.na(ph_city) & ph_city!="I'm not currently working in the Philippines") %>% group_by(ph_city) %>% 
+  summarise(c=n(), pct=round(100*n()/sum(count(phackers)),2), salary=mean(sal_num)) %>% 
+  arrange(desc(c))
+```
+```{r}
+
+phackers %>% filter(!is.na(ph_city) & ph_city!="I'm not currently working in the Philippines") %>% 
+  reorder(ph_city)
+  ggplot(aes(x=ph_city)) + geom_bar(stat="count") + coord_flip()
 ```
 
