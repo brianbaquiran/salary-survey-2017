@@ -72,7 +72,7 @@ top_industry_employed <- phackers_employed %>%
   rename("Industry"=company_industry_f, percentage=pct) %>% 
   top_n(n=10, wt=percentage)
 
-print(top_industry_employed)
+# print(top_industry_employed)
 
 ## Frelance 
 # top_industry_freelance <- phackers %>% filter(employment_f=="Freelance")%>% group_by(company_industry_f) %>%  summarise(median=median(salary_numeric), n=n(), pct=round(100*n()/sum(count(phackers)),2)) %>% arrange(desc(pct)) %>% rename("Industry"=company_industry_f, percentage=pct)
