@@ -115,7 +115,7 @@ phackers_employed %>%
 
 Employees working at companies less than 5 years old made up 35.56% of respondents and reported salaries slightly above the overall median, while those working at companies that had been in operations over 20 years reported salaries below the overall median.
 
-```{r}
+```{r, echo=FALSE}
 company_age_summary <- phackers_employed %>%
   group_by(company_age_f) %>% 
   summarise(median(salary_numeric), n(), pct=round(100 * n()/sum(count(phackers)), 2))
