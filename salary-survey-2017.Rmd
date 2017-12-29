@@ -25,8 +25,8 @@ source("salary_survey_util.R")
 # read_csv is a tidyverse version, found in the readr library
 phackers_raw <- read_csv("Philippine Tech Hackers Salary Survey 2017.csv")
 phackers <- preprocess_salary_survey(phackers_raw)
-summary(phackers$salary_numeric)
-print(paste("Total non-outlier respondents: ", dim(phackers)[1]))
+#summary(phackers$salary_numeric)
+#print(paste("Total non-outlier respondents: ", dim(phackers)[1]))
 ggplot(phackers, aes(salary_level))  + coord_flip() + geom_bar() + xlab("Total Salary (Philippine Pesos)") + ylab("Respondents") + labs(title="Total Salary")
 ```
 
