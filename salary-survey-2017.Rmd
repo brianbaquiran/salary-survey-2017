@@ -1,9 +1,14 @@
 ---
 title: "Philippine Tech Hackers Salary Survey, part 1"
 output:
-  html_document: default
+  html_document: 
+    toc: true
+    includes:
+      in_header: meta_headers.html
+    template: default_template.html
   html_notebook: default
   pdf_document: default
+  
 ---
 
 # Introduction
@@ -55,9 +60,11 @@ phackers_in_ph %>% ggplot(aes(x=ncr, y=salary_numeric, fill=ncr)) +
   coord_flip()
 ```
 
-# Company Types
+# Company Types 
 
 The salary survey included questions on industry, company size, and company age. Software was the most well-represented industry (36.44%), followed by IT Consulting (13.78%) and Business Process Outsourcing (6.44%). 
+
+## Industry
 
 In terms of salary range, employees in Banking/Finance, Advertising/Marketing/PR and Carriers/Telecommunications had the highest median salary ranges at Php 57,000 while
 Education had the lowest at Php 32,500 or Php 15,000 below the overall median of Php 47,500.
@@ -93,6 +100,8 @@ inner_join(phackers_employed, top_industry_employed, by=c("company_industry_f" =
   coord_flip() 
 ```
 
+## Company Size 
+
 Half the respondents work in companies with 100 or less employees, with 22.44% of respondents working in companies with between 2 and 25 employees. Respondents working in very large companies (over 10,000 employees) made up only 7.56% of the sample. 
 
 Both very small and very large companies had median salaries below the overall median of Php 47,500 with the smallest companies paying the least.  
@@ -112,6 +121,8 @@ phackers_employed %>%
   coord_flip()  
 
 ```
+
+## Company Age
 
 Employees working at companies less than 5 years old made up 35.56% of respondents and reported salaries slightly above the overall median, while those working at companies that had been in operations over 20 years reported salaries below the overall median.
 
