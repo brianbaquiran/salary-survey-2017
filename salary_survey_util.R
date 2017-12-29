@@ -50,7 +50,12 @@ preprocess_salary_survey <- function(raw_df) {
                            levels=c("Under 21", "21-25", "26-30", "31-35", "36-40", "41-45", "46-50", "51-55"),
                            ordered=TRUE)
   
-  
+  df$team_size_f <- factor(df$team_size,
+                           levels=c("1 (just me)", "2", "3", "4", "5", "6-7", "8-10", "11-15", "16-20", "more than 20"),
+                           ordered=TRUE)
+  df$project_size_f <- factor(df$project_size,
+                           levels=c("1 (just me)", "2", "3", "4", "5", "6-7", "8-10", "11-15", "16-20", "more than 20"),
+                           ordered=TRUE)
   df <- filter_outliers(df)
   # From this point on, no need to filter(!outlier)
   # return the resulting dataframe
@@ -76,13 +81,16 @@ rename_columns <- function(df) {
                 company_industry=`What is your company's business or industry?`,
                 company_size=`How many employees work at your company?`,
                 company_age=`How long has your company been in business?`,
+                team_size=`How many people are on your team?`,
+                project_size=`How large is your team for a typical coding project?`,
                 os_used=`Operating systems`,
                 proglang_used=`Programming Languages`,
                 datatools_used=`Data tools`,
                 cloud_used=`Cloud/Containers`,
                 worktasks_noncollab=`Which of the following tasks play a part in your workday? [Writing code for non-collaborative projects (no one else will work on this code)]`,
                 worktasks_collab=`Which of the following tasks play a part in your workday? [Writing code for collaborative projects]`,
-                worktasks_collabreview = `Which of the following tasks play a part in your workday? [Reading/editing code originally written by others (e.g., using git)]`)
+                worktasks_collabreview = `Which of the following tasks play a part in your workday? [Reading/editing code originally written by others (e.g., using git)]`
+                )
 }
 
 filter_outliers <- function(df) {
