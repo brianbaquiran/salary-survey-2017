@@ -158,3 +158,30 @@ phackers_employed %>%
   guides(fill="none") +
   labs(title="Project Size", x="Project Size", y="Salary Range")
 ```
+
+# Freelance and Independent Contractors
+
+Freelancers or independent contractors made up only 10% of the respondents. As a group, however, their median income is Php 10,000 above that of company employees.
+
+```{r, echo=FALSE}
+freelance_salary_summary <- phackers %>% group_by(employment_f) %>% summarise(median(salary_numeric), n=n(), percent=round(100 * n()/sum(count(phackers)),2))
+
+phackers %>% ggplot(aes(x=employment_f, y=salary_numeric, fill=employment_f)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 47500, linetype="dashed", color="blue") +
+  labs(title="Employment", x="Employed or Freelance", y="Salary Range") +
+  guides(fill="none")
+```
+
+
+```{r, echo=FALSE}
+phackers_freelance = phackers %>% filter(employment_f == "Freelance")
+
+phackers_freelance_summary <- phackers_freelance %>%  group_by(company_industry_f) %>% 
+  summarise(median=median(salary_numeric), n=n(), pct=round(100*n()/sum(count(phackers_freelance)),2)) %>% 
+  arrange(desc(pct)) %>%
+  rename("Industry"=company_industry_f, percentage=pct) %>% 
+  top_n(n=10, wt=percentage)
+
+# phackers_freelance_summary
+```
