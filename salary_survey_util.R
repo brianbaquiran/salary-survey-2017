@@ -113,6 +113,10 @@ filter_outliers <- function(df) {
   df
 }
 
+# 
+median_hline <-   geom_hline(yintercept=47500, linetype="dotted", color="blue")
+
+
 extract_columns <- function(x, split) {
   lapply(strsplit(x, split = split), sort)
 }
