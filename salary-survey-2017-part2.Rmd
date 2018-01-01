@@ -4,7 +4,7 @@ output:
   html_document: 
     toc: true
     includes:
-      in_header: meta_headers.html
+      in_header: meta_headers2.html
     template: default_template.html
   html_notebook: default
   pdf_document: default
@@ -117,23 +117,76 @@ phackers %>% group_by(exp_f) %>%
 ## Education
 
 ```{r education_summary, echo=FALSE, message=FALSE}
-education_summary <- phackers %>% filter(university != "(My university is not listed)") %>% 
+education_summary <- phackers %>% filter(university != "(My university is not listed)") %>%
   group_by(university) %>% 
   summarise(n=n(), pct=n()/sum(count(phackers)), 
             salary_median=median(salary_numeric), 
             lower=quantile(salary_numeric, 0.25), 
-            upper=quantile(salary_numeric, 0.75)) %>% 
+            upper=quantile(salary_numeric, 0.75))
+
+top_univerities <- education_summary %>% 
   arrange(desc(n)) %>% 
   top_n(10, n)
+
+top_uni_salary <- education_summary %>% arrange(desc(salary_median))
 ```
+### University
+Respondents came from many different universities, with `r top_univerities$university[1]` having the most respondents (`r percent(top_univerities$pct[1])`). 
 
 ```{r education_plot, echo=FALSE, message=FALSE, include=TRUE}
-education_summary %>% 
+top_univerities %>% 
   ggplot(aes(x=university, fill=university, y=salary_median, ymin=lower, ymax=upper)) +
   median_hline + 
   geom_crossbar(alpha=0.5, color="white")  + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
   labs(title="University Attended", x="", y="Salary Range") +
+  guides(fill="none") + 
+  coord_flip()
+```
+
+### Course Selection and Advanced Degrees
+
+```{r educ_course_degrees, echo=FALSE}
+educ_masters <- phackers %>% 
+  filter(educ_masters == TRUE) %>% 
+  summarise(n=n(), 
+            pct=n()/sum(count(phackers)),
+            median_salary=median(salary_numeric), 
+            lower=quantile(salary_numeric, 0.25), 
+            upper=quantile(salary_numeric, 0.75))
+educ_masters$statement <- "I have (completed) a master's degree"
+
+educ_computer_science <- phackers %>% 
+  filter(educ_computer_science == TRUE) %>% 
+  summarise(n=n(), 
+            pct=n()/sum(count(phackers)),
+            median_salary=median(salary_numeric), 
+            lower=quantile(salary_numeric, 0.25), 
+            upper=quantile(salary_numeric, 0.75)) 
+educ_computer_science$statement <- "My academic specialty is/was CS"
+
+educ_math_stat_physics <- phackers %>% filter(educ_math_stat_physics == TRUE) %>% 
+  summarise(n=n(), 
+            pct=n()/sum(count(phackers)),
+            median_salary=median(salary_numeric), lower=quantile(salary_numeric, 0.25), upper=quantile(salary_numeric, 0.75)) 
+educ_math_stat_physics$statement <- "My academic specialty was math, stats or physics"
+educ_it_mis <- phackers %>% filter(educ_it_mis == TRUE) %>% 
+  summarise(n=n(), 
+            pct=n()/sum(count(phackers)),
+            median_salary=median(salary_numeric), lower=quantile(salary_numeric, 0.25), upper=quantile(salary_numeric, 0.75))
+educ_it_mis$statement <- "My academic specialty was IT or MIS"
+educ_statements <- rbind(educ_masters, educ_computer_science, educ_math_stat_physics, educ_it_mis)
+```
+
+The majority (`r percent(mean(phackers$educ_computer_science | phackers$educ_it_mis))`) came from CS, IT or MIS courses. Only `r percent(educ_statements$pct[educ_statements$statement == "I have (completed) a master's degree"])` of respondents had completed a master's degree, and `r percent(educ_statements$pct[educ_statements$statement == "My academic specialty was math, stats or physics"])` came from a mathematics, statistics or physics course.
+
+```{r educ_statements_plot, echo=FALSE}
+
+ggplot(data=educ_statements, aes(x=statement, fill=statement, y=median_salary, ymin=lower, ymax=upper)) +
+  median_hline + 
+  geom_crossbar(alpha=0.5, color="white")  + 
+  scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
+  labs(title="Course selection and advanced degrees", x="", y="Salary Range") +
   guides(fill="none") + 
   coord_flip()
 ```
