@@ -6,22 +6,11 @@ output:
     includes:
       in_header: meta_headers.html
     template: default_template.html
-  html_notebook: default
-  pdf_document: default
   
 ---
 
-# Introduction
 
-The second Philippine Tech Hackers Salary Survey was conducted online using Google Forms. 
-A total of 507 community members responded, from companies both large and small, and from a wide variety of
-industries. Respondents were mostly software developers, but other professionals who program and are involved in IT also participated. Outliers, and those who reported as living/working outside the country were excluded from the analysis.
-
-The median monthly base salary for the remaining sample was Php 47,500, with the middle half of all respondents earning between Php 27,500 and Php 82,500. 
-
-_In the horizontal bar charts throughout this report, we include the interquartile range (IQR) to show the middle 50% of respondents’ answers to questions such as salary. One quarter of the respondents has a salary below the displayed range, and one quarter has a salary above the displayed range. The median salary of Php 47,500 will be represented in the box graphs by a dashed blue line._
-
-```{r echo=FALSE, message=FALSE}
+```{r intro, echo=FALSE, message=FALSE}
 library(doMC)
 registerDoMC(cores = 5)
 library(tidyverse)
@@ -34,6 +23,29 @@ phackers_raw <- read_csv("Philippine Tech Hackers Salary Survey 2017.csv")
 phackers <- preprocess_salary_survey(phackers_raw)
 #summary(phackers$salary_numeric)
 #print(paste("Total non-outlier respondents: ", dim(phackers)[1]))
+
+salary_median <- median(phackers$salary_numeric)
+
+Php <- function(x) {
+  sprintf("Php %s", comma(x))
+}
+
+PhpK <- function(x) {
+  Php(x/1000)
+}
+```
+
+# Introduction
+
+The second Philippine Tech Hackers Salary Survey was conducted online using Google Forms. 
+A total of `r nrow(phackers_raw)` community members responded, from companies both large and small, and from a wide variety of
+industries. Respondents were mostly software developers, but other professionals who program and are involved in IT also participated. Outliers, and those who reported as living/working outside the country were excluded from the analysis.
+
+The median monthly base salary for the remaining sample was `r Php(median(phackers$salary_numeric))`, with the middle half of all respondents earning between `r Php(quantile(phackers$salary_numeric, 0.25))` and `r Php(quantile(phackers$salary_numeric, 0.75))` 
+
+_In the horizontal bar charts throughout this report, we include the interquartile range (IQR) to show the middle 50% of respondents’ answers to questions such as salary. One quarter of the respondents has a salary below the displayed range, and one quarter has a salary above the displayed range. The median salary of `r Php(median(phackers$salary_numeric))` will be represented in the box graphs by a dashed blue line._
+
+```{r intro_plot, echo=FALSE, message=FALSE}
 intro_plot <- ggplot(phackers, aes(salary_level, fill=..count..))  + 
   geom_bar() +  
   geom_vline(xintercept=47500, linetype="dashed", color="blue") + 
@@ -41,66 +53,74 @@ intro_plot <- ggplot(phackers, aes(salary_level, fill=..count..))  +
   guides(fill = "none") +
   coord_flip() 
 
+
 intro_plot
 ```
 
 # Location
 
-The overwhelming majority of respondents live and work in Metro Manila, with just over 16% of the respondents from other cities in the Philippines. 
-The median salary for respondents living and working in Metro Manila is Php 47,500 with the median outside of NCR Php 10,000 lower at Php 37,500.
-
-```{r, echo=FALSE}
+```{r location, echo=FALSE}
 phackers_in_ph <- phackers %>%  filter(!is.na(ncr))
 location_summary <-  phackers_in_ph %>% 
   group_by(ncr) %>% 
-  summarise(Median=median(salary_numeric), ymin=quantile(salary_numeric, 0.25), ymax=quantile(salary_numeric, 0.75))
+  summarise(Median=median(salary_numeric), n=n(), 
+            pct=n()/sum(count(phackers_in_ph)), 
+            ymin=quantile(salary_numeric, 0.25), 
+            ymax=quantile(salary_numeric, 0.75))
 
-location_lineplot <- location_summary %>% ggplot(aes(x=ncr, y=Median, ymin=ymin, ymax=ymax, color=ncr)) + 
+median_salary_ncr <- location_summary$Median[location_summary$ncr == "NCR"]
+percentage_outside_ncr <- location_summary$pct[location_summary$ncr != "NCR"]
+median_salary_outside_ncr <- location_summary$Median[location_summary$ncr != "NCR"]
+ncr_salary_premium <- median_salary_ncr - median_salary_outside_ncr
+```
+
+The overwhelming majority of respondents live and work in Metro Manila, with just over `r percent(percentage_outside_ncr)` of the respondents from other cities in the Philippines. 
+The median salary for respondents living and working in Metro Manila is `r Php(median_salary_ncr)` with the median outside of NCR `r Php(ncr_salary_premium)` lower at `r Php(median_salary_outside_ncr)`
+
+```{r location-plot, echo=FALSE}
+location_lineplot <- location_summary %>% ggplot(aes(x=ncr, y=Median, ymin=ymin, ymax=ymax, fill=ncr)) + 
   median_hline + 
-  geom_linerange(size=10) +
-  geom_point(shape='|', size=10,stroke=2, color="white" )  +
+  geom_crossbar(alpha=0.5, color="white") +
+   # geom_point(shape='|', size=10,stroke=2, color="white" )  +
   labs(title="Location", x="Location", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
-  guides(color="none") +
+  guides(fill="none") +
   coord_flip()
+
 location_lineplot
 
-location_boxplot <- phackers_in_ph %>% ggplot(aes(x=ncr, y=salary_numeric, fill=ncr)) + 
-  median_hline + 
-  geom_boxplot() + 
-  labs(x="Location", y="Salary Range", title="Location") +
-  guides(fill="none") + 
-  coord_flip()
-
+# location_boxplot <- phackers_in_ph %>% ggplot(aes(x=ncr, y=salary_numeric, fill=ncr)) + 
+#   median_hline + 
+#   geom_boxplot() + 
+#   labs(x="Location", y="Salary Range", title="Location") +
+#   guides(fill="none") + 
+#   coord_flip()
 # location_plot
 ```
 
 # Company Types 
 
-The salary survey included questions on industry, company size, and company age. Software was the most well-represented industry (36.44%), followed by IT Consulting (13.78%) and Business Process Outsourcing (6.44%). 
-
-## Industry
-
-In terms of salary range, employees in Banking/Finance, Advertising/Marketing/PR and Carriers/Telecommunications had the highest median salary ranges at Php 57,000 while
-Education had the lowest at Php 32,500 or Php 15,000 below the overall median of Php 47,500.
-
-```{r, echo=FALSE}
+```{r company_types, echo=FALSE}
 phackers_employed <- phackers %>% filter(employment_f=="Employed")
 
 # Determine the top 10 industries represented
 top_industry_employed <- phackers_employed %>% 
   group_by(company_industry_f) %>% 
-  summarise(median=median(salary_numeric), n=n(), pct=round(100*n()/sum(count(phackers)),2)) %>% 
+  summarise(median=median(salary_numeric), n=n(), pct=n()/sum(count(phackers))) %>% 
   arrange(desc(pct)) %>%
   rename("Industry"=company_industry_f, percentage=pct) %>% 
   top_n(n=10, wt=percentage)
+```
+The salary survey included questions on industry, company size, and company age. Software was the most well-represented industry (`r percent(top_industry_employed$percentage[1])`), followed by IT Consulting (`r percent(top_industry_employed$percentage[2])`) and Business Process Outsourcing (`r percent(top_industry_employed$percentage[3])`). 
 
-# print(top_industry_employed)
+## Industry Salaries
 
-## Frelance 
-# top_industry_freelance <- phackers %>% filter(employment_f=="Freelance")%>% group_by(company_industry_f) %>%  summarise(median=median(salary_numeric), n=n(), pct=round(100*n()/sum(count(phackers)),2)) %>% arrange(desc(pct)) %>% rename("Industry"=company_industry_f, percentage=pct)
-# top_ten_industries_freelance <- top_industry_freelance[1:10,]
-# print(top_ten_industries_freelance)
+In terms of salary range, employees in Banking/Finance, Advertising/Marketing/PR and Carriers/Telecommunications 
+had the highest median salary ranges at Php 57,000 while
+Education had the lowest at Php 32,500 or Php 15,000 below the overall median of `r Php(salary_median)`.
+
+```{r industry, echo=FALSE, message=FALSE}
+
 
 # Use inner_join to get the subset phackers in the top 10 industries
 # inner_join(phackers_employed, top_industry_employed, by=c("company_industry_f" = "Industry")) %>% 
@@ -118,13 +138,14 @@ industry_boxplot <- top_industry_phackers %>%
   coord_flip() 
 
 top_industry_phackers %>% group_by(company_industry_f) %>% summarise(median_salary=median(salary_numeric), lower=quantile(salary_numeric, 0.25), upper=quantile(salary_numeric, 0.75)) %>%
-  ggplot(aes(x=company_industry_f, color=company_industry_f, y=median_salary, ymin=lower, ymax=upper)) + 
+  ggplot(aes(x=company_industry_f, fill=company_industry_f, y=median_salary, ymin=lower, ymax=upper)) + 
   median_hline + 
-  geom_linerange(size=5) +
-  geom_point(shape='|', size=5, stroke=2, color="white" )  +
+  # geom_linerange(size=5) +
+  geom_crossbar(alpha=0.5, color="white") + 
+  # geom_point(shape='|', size=5, stroke=2, color="white" )  +
   labs(title="Company Industry", x="Company Industry", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
-  guides(color="none") +
+  guides(fill="none") +
   coord_flip()
 ```
 
@@ -134,7 +155,7 @@ Half the respondents work in companies with 100 or less employees, with 22.44% o
 
 Both very small and very large companies had median salaries below the overall median of Php 47,500 with the smallest companies paying the least.  
 
-```{r, echo=FALSE}
+```{r company_size, echo=FALSE}
 
 company_size_summary <-phackers_employed %>%
   group_by(company_size_f) %>% 
@@ -150,13 +171,14 @@ company_size_boxplot <- phackers_employed %>%
   guides(fill="none") +
   coord_flip()  
 
-company_size_summary %>% ggplot(aes(x=company_size_f, y=median_salary, ymin=lower, ymax=upper, color=company_size_f )) + 
+company_size_summary %>% ggplot(aes(x=company_size_f, y=median_salary, ymin=lower, ymax=upper, fill=company_size_f )) + 
   median_hline + 
-  geom_linerange(size=5) +
-  geom_point(shape='|', size=5, stroke=2, color="white" )  +
+  geom_crossbar(alpha=0.5, color="white") + 
+  # geom_linerange(size=5) +
+  # geom_point(shape='|', size=5, stroke=2, color="white" )  +
   labs(title="Company Size", x="Company Size", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
-  guides(color="none") +
+  guides(fill="none") +
   coord_flip()
 ```
 
@@ -164,7 +186,7 @@ company_size_summary %>% ggplot(aes(x=company_size_f, y=median_salary, ymin=lowe
 
 Employees working at companies less than 5 years old made up 35.56% of respondents and reported salaries slightly above the overall median, while those working at companies that had been in operations over 20 years reported salaries below the overall median.
 
-```{r, echo=FALSE}
+```{r company_age, echo=FALSE}
 company_age_summary <- phackers_employed %>%
   group_by(company_age_f) %>% 
   summarise(median_salary=median(salary_numeric), n(), 
@@ -181,13 +203,14 @@ company_age_boxplot <- phackers_employed %>%
   guides(fill="none") +
   coord_flip() 
 
-company_age_summary %>% ggplot(aes(x=company_age_f, color=company_age_f, y=median_salary, ymin=lower, ymax=upper)) + 
+company_age_summary %>% ggplot(aes(x=company_age_f, fill=company_age_f, y=median_salary, ymin=lower, ymax=upper)) + 
   median_hline +
-  geom_linerange(size=5) +
-  geom_point(shape='|', size=5, stroke=2, color="white" )  +
+  geom_crossbar(alpha=0.5, color="white") +
+  # geom_linerange(size=5) +
+  # geom_point(shape='|', size=5, stroke=2, color="white" )  +
   labs(title="Company Age", x="Company Age", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
-  guides(color="none") +
+  guides(fill="none") +
   coord_flip()
 ```
 
@@ -195,7 +218,7 @@ company_age_summary %>% ggplot(aes(x=company_age_f, color=company_age_f, y=media
 There seems to be no clear relationship between team or project size and salary, other than solo developers and those on
 very large project teams (greater than 20 members) tend to make less than the overall median salary.
 
-```{r, echo=FALSE}
+```{r team_project_size, echo=FALSE}
 team_size_summary <- phackers_employed %>% 
   group_by(team_size_f) %>% 
   summarise(y=median(salary_numeric), n=n(), percent=round(100*n()/sum(count(phackers)),2),
@@ -209,13 +232,14 @@ team_size_boxplot <- phackers_employed %>%
   guides(fill="none") + 
   labs(title="Team Size", x="Team size", y="Salary Range")
 
-team_size_summary %>% ggplot(aes(x=team_size_f, color=team_size_f, y=y, ymin=lower, ymax=upper)) +
+team_size_summary %>% ggplot(aes(x=team_size_f, fill=team_size_f, y=y, ymin=lower, ymax=upper)) +
   median_hline +
-  geom_linerange(size=5) +
-  geom_point(shape='|', size=5, stroke=2, color="white" )  +
+  geom_crossbar(alpha=0.5, color="white") + 
+  # geom_linerange(size=5) +
+  # geom_point(shape='|', size=5, stroke=2, color="white" )  +
   labs(title="Team Size", x="Team Size", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
-  guides(color="none") +
+  guides(fill="none") +
   coord_flip()
   
 project_size_summary <- phackers_employed %>% group_by(project_size_f) %>% 
@@ -232,13 +256,13 @@ project_size_boxplot <- phackers_employed %>%
   guides(fill="none") +
   labs(title="Project Size", x="Project Size", y="Salary Range")
 
-project_size_summary %>% ggplot(aes(x=project_size_f, color=project_size_f, y=y, ymin=lower, ymax=upper)) +
+project_size_summary %>% ggplot(aes(x=project_size_f, fill=project_size_f, y=y, ymin=lower, ymax=upper)) +
   median_hline +
-  geom_linerange(size=5) +
-  geom_point(shape='|', size=5, stroke=2, color="white" )  +
+  # geom_linerange(size=5) +
+  geom_crossbar(alpha=0.5, color="white") + 
   labs(title="Project Size", x="Project Size", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
-  guides(color="none") +
+  guides(fill="none") +
   coord_flip()
 ```
 
@@ -246,7 +270,7 @@ project_size_summary %>% ggplot(aes(x=project_size_f, color=project_size_f, y=y,
 
 Freelancers or independent contractors made up only 10% of the respondents. As a group, however, their median income is Php 10,000 above that of company employees.
 
-```{r, echo=FALSE}
+```{r employment, echo=FALSE}
 freelance_salary_summary <- phackers %>% group_by(employment_f) %>% 
   summarise(median_salary=median(salary_numeric), 
             n=n(), 
@@ -254,19 +278,12 @@ freelance_salary_summary <- phackers %>% group_by(employment_f) %>%
             lower=quantile(salary_numeric, 0.25), 
             upper=quantile(salary_numeric, 0.75))
 
-freelance_boxplot <- phackers %>% ggplot(aes(x=employment_f, y=salary_numeric, fill=employment_f)) +
-  median_hline + 
-  geom_boxplot() +
-  labs(title="Employment", x="Employed or Freelance", y="Salary Range") +
-  guides(fill="none")
-
-freelance_salary_summary %>% ggplot(aes(x=employment_f, color=employment_f, y=median_salary, ymin=lower, ymax=upper)) +
+freelance_salary_summary %>% ggplot(aes(x=employment_f, fill=employment_f, y=median_salary, ymin=lower, ymax=upper)) +
   median_hline +
-  geom_linerange(size=10) +
-  geom_point(shape='|', size=10, stroke=2, color="white" )  +
+  geom_crossbar(alpha=0.5, color="white") +
   labs(title="Employment", x="Employment", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
-  guides(color="none") +
+  guides(fill="none") +
   coord_flip()
 ```
 
