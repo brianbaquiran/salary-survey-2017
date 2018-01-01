@@ -25,14 +25,8 @@ phackers <- preprocess_salary_survey(phackers_raw)
 #print(paste("Total non-outlier respondents: ", dim(phackers)[1]))
 
 salary_median <- median(phackers$salary_numeric)
+median_hline <-   geom_hline(yintercept=salary_median, linetype="dotted", color="blue")
 
-Php <- function(x) {
-  sprintf("Php %s", comma(x))
-}
-
-PhpK <- function(x) {
-  Php(x/1000)
-}
 ```
 
 # Introduction
@@ -111,13 +105,18 @@ top_industry_employed <- phackers_employed %>%
   rename("Industry"=company_industry_f, percentage=pct) %>% 
   top_n(n=10, wt=percentage)
 ```
-The salary survey included questions on industry, company size, and company age. Software was the most well-represented industry (`r percent(top_industry_employed$percentage[1])`), followed by IT Consulting (`r percent(top_industry_employed$percentage[2])`) and Business Process Outsourcing (`r percent(top_industry_employed$percentage[3])`). 
+The salary survey included questions on industry, company size, and company age. `r top_industry_employed$Industry[1]` was the most well-represented industry (`r percent(top_industry_employed$percentage[1])`), followed by `r top_industry_employed$Industry[2]`  (`r percent(top_industry_employed$percentage[2])`) and `r top_industry_employed$Industry[3]` (`r percent(top_industry_employed$percentage[3])`). 
 
 ## Industry Salaries
+```{r industry_salaries, echo=FALSE}
+top_industry_by_med_salary <- top_industry_employed %>% arrange(desc(median))
+bottom_industry_by_med_salary <-top_industry_employed %>% arrange(median)
+```
 
-In terms of salary range, employees in Banking/Finance, Advertising/Marketing/PR and Carriers/Telecommunications 
-had the highest median salary ranges at Php 57,000 while
-Education had the lowest at Php 32,500 or Php 15,000 below the overall median of `r Php(salary_median)`.
+In terms of salary range, 
+employees in `r top_industry_by_med_salary$Industry[1]` and `r top_industry_by_med_salary$Industry[2]` had the highest median salary at 
+`r Php(top_industry_by_med_salary$median[1])` 
+while  `r bottom_industry_by_med_salary$Industry[1]` had the lowest at `r Php(bottom_industry_by_med_salary$median[1])`.
 
 ```{r industry, echo=FALSE, message=FALSE}
 
@@ -151,26 +150,21 @@ top_industry_phackers %>% group_by(company_industry_f) %>% summarise(median_sala
 
 ## Company Size 
 
-Half the respondents work in companies with 100 or less employees, with 22.44% of respondents working in companies with between 2 and 25 employees. Respondents working in very large companies (over 10,000 employees) made up only 7.56% of the sample. 
-
-Both very small and very large companies had median salaries below the overall median of Php 47,500 with the smallest companies paying the least.  
 
 ```{r company_size, echo=FALSE}
 
-company_size_summary <-phackers_employed %>%
+company_size_summary <- phackers_employed %>%
   group_by(company_size_f) %>% 
-  summarise(median_salary=median(salary_numeric), n = n(), pct = round(100 * n() / sum(count(phackers)), 2),
+  summarise(median_salary=median(salary_numeric), n = n(), pct = n() / sum(count(phackers)),
             lower=quantile(salary_numeric, 0.25), 
             upper=quantile(salary_numeric, 0.75))
+```
 
-company_size_boxplot <- phackers_employed %>% 
-  ggplot(aes(y=salary_numeric, x=company_size_f, fill=company_size_f)) + 
-  median_hline + 
-  geom_boxplot(outlier.alpha = 0.2) + 
-  labs(title="Company Size", x="Company Size", y="Salary Range") + 
-  guides(fill="none") +
-  coord_flip()  
+Half the respondents work in companies with 100 or less employees, 
+with `r percent(company_size_summary$pct[company_size_summary$company_size_f=="2 - 25"])` of respondents working in companies with between 2 and 25 employees. 
+Respondents working in very large companies (over 10,000 employees) made up only `r percent(company_size_summary$pct[company_size_summary$company_size_f=="10,001 or more"])` of the sample. 
 
+```{r company_size_plot, echo=FALSE}
 company_size_summary %>% ggplot(aes(x=company_size_f, y=median_salary, ymin=lower, ymax=upper, fill=company_size_f )) + 
   median_hline + 
   geom_crossbar(alpha=0.5, color="white") + 
@@ -184,17 +178,21 @@ company_size_summary %>% ggplot(aes(x=company_size_f, y=median_salary, ymin=lowe
 
 ## Company Age
 
-Employees working at companies less than 5 years old made up 35.56% of respondents and reported salaries slightly above the overall median, while those working at companies that had been in operations over 20 years reported salaries below the overall median.
 
 ```{r company_age, echo=FALSE}
 company_age_summary <- phackers_employed %>%
   group_by(company_age_f) %>% 
   summarise(median_salary=median(salary_numeric), n(), 
-            pct=round(100 * n()/sum(count(phackers)), 2), 
+            pct = n()/sum(count(phackers)),
             lower=quantile(salary_numeric, 0.25),
             upper=quantile(salary_numeric, 0.75))
-# company_age_summary
+```
 
+Employees working at companies less than 10 years old made up 
+`r percent(sum(company_age_summary$pct[company_age_summary$company_age_f <= "6 - 10 years"]))` of respondents 
+and reported salaries above the overall median.
+
+```{r company_age_plot, echo=FALSE}
 company_age_boxplot <- phackers_employed %>% 
   ggplot(aes(x=company_age_f, y=salary_numeric, fill=company_age_f)) + 
   median_hline +
@@ -206,8 +204,6 @@ company_age_boxplot <- phackers_employed %>%
 company_age_summary %>% ggplot(aes(x=company_age_f, fill=company_age_f, y=median_salary, ymin=lower, ymax=upper)) + 
   median_hline +
   geom_crossbar(alpha=0.5, color="white") +
-  # geom_linerange(size=5) +
-  # geom_point(shape='|', size=5, stroke=2, color="white" )  +
   labs(title="Company Age", x="Company Age", y="Salary Range") + 
   scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
   guides(fill="none") +
@@ -268,16 +264,22 @@ project_size_summary %>% ggplot(aes(x=project_size_f, fill=project_size_f, y=y, 
 
 # Freelance and Independent Contractors
 
-Freelancers or independent contractors made up only 10% of the respondents. As a group, however, their median income is Php 10,000 above that of company employees.
 
 ```{r employment, echo=FALSE}
 freelance_salary_summary <- phackers %>% group_by(employment_f) %>% 
   summarise(median_salary=median(salary_numeric), 
             n=n(), 
-            percent=round(100 * n()/sum(count(phackers)),2),
+            percent=n()/sum(count(phackers)),
             lower=quantile(salary_numeric, 0.25), 
             upper=quantile(salary_numeric, 0.75))
 
+freelance_premium <- freelance_salary_summary$median_salary[freelance_salary_summary$employment_f == "Freelance"] -
+  freelance_salary_summary$median_salary[freelance_salary_summary$employment_f == "Employed"]
+```
+
+Freelancers or independent contractors made up only `r percent(freelance_salary_summary$percent[freelance_salary_summary$employment_f == "Freelance"])` of the respondents. As a group, freelancers enjoyed a `r Php(freelance_premium)` premium over employees.
+
+```{r employment_plot, echo=FALSE}
 freelance_salary_summary %>% ggplot(aes(x=employment_f, fill=employment_f, y=median_salary, ymin=lower, ymax=upper)) +
   median_hline +
   geom_crossbar(alpha=0.5, color="white") +
@@ -297,10 +299,12 @@ phackers_freelance_summary <- phackers_freelance %>%  group_by(company_industry_
   rename("Industry"=company_industry_f, percentage=pct) %>% 
   top_n(n=10, wt=percentage)
 
+# Not porinting this because almost all of freelancers work in Software, and their median is same as the overall median. Only 3 work in consulting, 2 in BPO and 
+# other industries only have 1 Freelance respondent
 # phackers_freelance_summary
 ```
 
 ```{r, echo=FALSE, message=FALSE}
-d <- phackers %>% select(salary_numeric, ncr, employment_f)
+d <- phackers %>% select(salary_numeric, ncr, employment_f, company_age, company_size_f, company_industry_f, age_range_f, exp_num, university)
 model = lm(salary_numeric ~ ., data=d)
 ```

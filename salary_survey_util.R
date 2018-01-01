@@ -1,5 +1,17 @@
 library(dplyr)
 
+# Functions to print peso values (salary_numeric) as Php 123,456
+Php <- function(x) {
+  sprintf("Php %s", comma(x))
+}
+
+# Functions to print peso values (salary_numeric) as Php 123K
+# Useful mostly in scale_y_continuous to print neat labels
+PhpK <- function(x) {
+  Php(x/1000)
+}  
+
+
 preprocess_salary_survey <- function(raw_df) {
   df <- rename_columns(raw_df)
   
@@ -11,6 +23,9 @@ preprocess_salary_survey <- function(raw_df) {
   # count less than 1 year as 0
   df$exp_num <- parse_number(df$exp_raw)
   df$exp_num[df$exp_raw == "Less than 1 year"] <- 0.5
+  exp_lvls <- seq(0,20)
+  exp_lvls[1] <- "Less than 1 year"
+  df$exp_f <- factor(df$exp_raw, levels=exp_lvls, ordered=TRUE)
  
   # Geography: city as factor, and whether they are in or outside NCR 
   df$ph_city_f <- factor(df$ph_city)
@@ -98,23 +113,22 @@ filter_outliers <- function(df) {
   # We label as outliers those that:
   # a. are outside the Philippines
   # b. are outside Q3+3IQR in salary and years of experience
-  sal_smry <- summary(df$salary_numeric)
-  sal_smry
-  sal_iqr = sal_smry['3rd Qu.'] - sal_smry['1st Qu.']
-  sal_upper_fence <- sal_smry['1st Qu.'] + 3 * sal_iqr
   
-  exp_summary<-summary(df$exp_num)
-  exp_iqr <- exp_summary['3rd Qu.'] - exp_summary['1st Qu.']
-  exp_upper_fence <- exp_summary['3rd Qu.'] + 3*exp_iqr
+  # First, remove those that are clearly not in the Philippines
+  df_in_ph <- df %>% filter(in_ph != "No") %>% filter(ph_city != "I'm not currently working in the Philippines")
   
-  df$outlier <- df$salary_numeric > sal_upper_fence |  df$exp_num > exp_upper_fence |  df$in_ph == "No" | df$ph_city == "I'm not currently working in the Philippines"
-
-  df <- df %>% filter(!outlier)
-  df
+  # Find the IQR for salary and experience, and the upper fence for outliers for both
+  salary_iqr <- IQR(df_in_ph$salary_numeric)
+  sal_upper_fence <- quantile(df_in_ph$salary_numeric, 0.75) + (1.5 * salary_iqr)
+  
+  exp_iqr <- IQR(df_in_ph$exp_num)
+  exp_upper_fence <- quantile(df_in_ph$exp_num, 0.75) + 1.5 * exp_iqr
+  
+  filtered <- df_in_ph %>% filter(salary_numeric < sal_upper_fence & exp_num < exp_upper_fence)
+  filtered
 }
 
 # 
-median_hline <-   geom_hline(yintercept=47500, linetype="dotted", color="blue")
 
 
 extract_columns <- function(x, split) {

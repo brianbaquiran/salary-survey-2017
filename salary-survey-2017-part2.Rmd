@@ -1,0 +1,139 @@
+---
+title: "Philippine Tech Hackers Salary Survey, part 2"
+output:
+  html_document: 
+    toc: true
+    includes:
+      in_header: meta_headers.html
+    template: default_template.html
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r echo=FALSE, message=FALSE}
+library(doMC)
+registerDoMC(cores = 5)
+
+library(tidyverse)
+library(scales)  # allows us to use labels=comma in scales
+
+source("salary_survey_util.R")
+
+# read_csv is a tidyverse version, found in the readr library
+phackers_raw <- read_csv("Philippine Tech Hackers Salary Survey 2017.csv")
+phackers <- preprocess_salary_survey(phackers_raw)
+
+salary_median <- median(phackers$salary_numeric)
+median_hline <-   geom_hline(yintercept=salary_median, linetype="dotted", color="blue")
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Gender
+```{r gender, echo=FALSE, echo=FALSE}
+gender_summary <- phackers %>% group_by(gender) %>% summarise(n=n(), 
+                                                              percent=n()/sum(count(phackers)),
+                                                              median=median(salary_numeric), 
+                                                              lower=quantile(salary_numeric, 0.25), 
+                                                              upper=quantile(salary_numeric, 0.75))
+```
+
+The sample was overwhelmingly male (`r percent(gender_summary$percent[gender_summary$gender=="Male"])`), and while the median salary of both male and female respondents were the same, the upper bound of the middle 50% of salaries for men exceeded women's by `r Php(gender_summary$upper[gender_summary$gender=="Male"] - gender_summary$upper[gender_summary$gender=="Female"])`.
+
+```{r gender_plot, echo=FALSE, message=FALSE}
+# Plot
+gender_summary %>% filter(gender != "Prefer not to say") %>% 
+  ggplot(aes(x=gender, y=median, ymin=lower, ymax=upper, fill=gender)) +  median_hline +
+  geom_crossbar(alpha=0.5, color="white") + 
+  geom_jitter(alpha=I(0.1)) + 
+  guides(fill="none") + 
+  labs(x="Gender", y="Salary Range", title="Gender") + 
+  scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
+  coord_flip()
+```
+
+
+## Age and Experience
+
+```{r age, echo=FALSE, message=FALSE}
+age_hist <- phackers %>% 
+  ggplot(aes(x=age_range_f, fill=..count..)) + 
+  geom_bar(stat="count") + 
+  labs(title="Age", x="Age Group", y="")+
+  guides(fill="none")
+
+age_hist
+
+phackers_by_age <- phackers %>% group_by(age_range_f) %>% summarise(n=n(), percent=n()/sum(count(phackers)))
+phackers_under_25 <- sum(phackers_by_age$percent[phackers_by_age$age_range_f <= "21-25"])
+```
+
+Over half (`r percent(phackers_under_25)`) of respondents were 25 years old or younger at the time of the survey. There were not enough respondents with ages greater than 40 to provide meaningful analysis. As expected, developer salary increases with age and experience. 
+
+```{r age_under_40, echo=FALSE, message=FALSE}
+# Not enough in the ranges > 40yo to plot meaningful stats, so we restrict analysis to the ranges 40 and below
+phackers_under_40 <- phackers %>% filter(age_range_f < "41-45") 
+summary_age <- phackers_under_40 %>%  group_by(age_range_f) %>% 
+  summarise(n=n(), 
+            median_salary=median(salary_numeric), 
+            lower=quantile(salary_numeric, 0.25), 
+            upper=quantile(salary_numeric, .75)) 
+
+# Graph using geom_linerange
+summary_age %>% ggplot(aes(x=age_range_f, y=median_salary, fill=age_range_f, ymin=lower, ymax=upper)) +
+  median_hline + 
+  geom_crossbar(alpha=0.5, color="white") +
+  labs(title="Age", x="Age Range", y="Salary Range") + 
+  scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
+  guides(fill="none") +
+  coord_flip()
+```
+
+```{r experience_hist, include=FALSE, echo=FALSE, message=FALSE}
+phackers %>% 
+  ggplot(aes(x=exp_f, fill=..count..)) + 
+  geom_histogram(stat="count") + 
+  labs(title="Years of Experience", x="Years of Experience", y="") +
+  guides(fill="none")
+```
+
+```{r experience_plot, echo=FALSE, message=FALSE}
+phackers %>% group_by(exp_f) %>% 
+  summarise(salary_median=median(salary_numeric), lower=quantile(salary_numeric, 0.25), upper=quantile(salary_numeric, 0.75)) %>% 
+  ggplot(aes(x=exp_f, fill=exp_f, y=salary_median, ymin=lower, ymax=upper)) + 
+  median_hline + 
+  geom_crossbar(alpha=0.5, color="white")  + 
+  scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
+  labs(title="Years of Experience", x="Years of Experience", y="Salary Range") +
+  guides(fill="none") + 
+  coord_flip()
+```
+
+
+## Education
+
+```{r education_summary, echo=FALSE, message=FALSE}
+education_summary <- phackers %>% filter(university != "(My university is not listed)") %>% 
+  group_by(university) %>% 
+  summarise(n=n(), pct=n()/sum(count(phackers)), 
+            salary_median=median(salary_numeric), 
+            lower=quantile(salary_numeric, 0.25), 
+            upper=quantile(salary_numeric, 0.75)) %>% 
+  arrange(desc(n)) %>% 
+  top_n(10, n)
+```
+
+```{r education_plot, echo=FALSE, message=FALSE, include=TRUE}
+education_summary %>% 
+  ggplot(aes(x=university, fill=university, y=salary_median, ymin=lower, ymax=upper)) +
+  median_hline + 
+  geom_crossbar(alpha=0.5, color="white")  + 
+  scale_y_continuous(breaks = seq(20000,200000,by=20000), labels=function(sal) {sprintf("%.0fK", sal / 1000)}) + 
+  labs(title="University Attended", x="", y="Salary Range") +
+  guides(fill="none") + 
+  coord_flip()
+```
