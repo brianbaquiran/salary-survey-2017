@@ -71,6 +71,23 @@ preprocess_salary_survey <- function(raw_df) {
   df$project_size_f <- factor(df$project_size,
                            levels=c("1 (just me)", "2", "3", "4", "5", "6-7", "8-10", "11-15", "16-20", "more than 20"),
                            ordered=TRUE)
+  
+  # University fixer
+  df$university[grep("^AMA", df$university)] <- "AMA University System"
+  df$university[grep("^AMA", df$university_other)] <- "AMA University System"
+  df$university[grep("^STI", df$university)] <- "STI University System"
+  df$university[grep("^STI", df$university_other)] <- "STI University System"
+  
+  # Course and concentration
+  df$educ_masters <- FALSE
+  df$educ_masters[grep("master's degree", df$educ_stmts)] <- TRUE
+  df$educ_computer_science <- FALSE
+  df$educ_computer_science[grep("computer science", df$educ_stmts)] <- TRUE
+  df$educ_math_stat_physics <- FALSE
+  df$educ_math_stat_physics[grep("mathematics", df$educ_stmts)] <- TRUE
+  df$educ_it_mis <- FALSE
+  df$educ_it_mis[grep("IT or MIS", df$educ_stmts)] <- TRUE
+  
   df <- filter_outliers(df)
   # From this point on, no need to filter(!outlier)
   # return the resulting dataframe
